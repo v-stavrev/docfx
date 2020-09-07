@@ -133,6 +133,18 @@ namespace Microsoft.DocAsCode.Build.Engine
         private void UpdateHref()
         {
             Logger.LogVerbose("Updating href...");
+            ////foreach (var m in _manifestWithContext)
+            ////{
+            ////    using (new LoggerFileScope(m.FileModel.LocalPathFromRoot))
+            ////    {
+            ////        Logger.LogDiagnostic($"Plug-in {m.Processor.Name}: Updating href...");
+            ////        m.Processor.UpdateHref(m.FileModel, _context);
+
+            ////        // reset model after updating href
+            ////        m.Item.Model = m.FileModel.ModelWithCache;
+            ////    }
+            ////}
+
             _manifestWithContext.RunAll(m =>
             {
                 using (new LoggerFileScope(m.FileModel.LocalPathFromRoot))

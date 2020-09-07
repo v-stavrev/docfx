@@ -468,6 +468,9 @@ namespace Microsoft.DocAsCode.SubCommands
                 created = _templateManager.TryExportTemplateFiles(pluginFilePath, @"^(?:plugins|md\.styles)/.*");
                 if (created)
                 {
+                    File.Copy(@"E:\CEAPEX\Engineering\OpenPublishing.Build\DROP\TemplateProcessor.AnyCPU.Debug\Microsoft.OpenPublishing.Build.TemplateProcessor.dll", Path.Combine(pluginFilePath, "plugins", "Microsoft.OpenPublishing.Build.TemplateProcessor.dll"), true);
+                    File.Copy(@"E:\CEAPEX\Engineering\OpenPublishing.Build\DROP\TemplateProcessor.AnyCPU.Debug\Microsoft.OpenPublishing.Build.TemplateProcessor.dll.config", Path.Combine(pluginFilePath, "plugins", "Microsoft.OpenPublishing.Build.TemplateProcessor.dll.config"), true);
+
                     BuildDocumentWithPlugin(Config, _templateManager, baseDirectory, outputDirectory, pluginBaseFolder, Path.Combine(pluginFilePath, "plugins"), pluginFilePath);
                 }
                 else

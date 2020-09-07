@@ -31,6 +31,30 @@ namespace Microsoft.DocAsCode.Build.Engine
         public void Handle(List<HostService> hostServices, int maxParallelism)
         {
             Prepare(hostServices, maxParallelism);
+
+            ////foreach (var hostService in hostServices)
+            ////{
+            ////    using (new LoggerPhaseScope(hostService.Processor.Name, LogLevel.Verbose))
+            ////    {
+            ////        var steps = string.Join("=>", hostService.Processor.BuildSteps.OrderBy(step => step.BuildOrder).Select(s => s.Name));
+            ////        Logger.LogInfo($"Building {hostService.Models.Count} file(s) in {hostService.Processor.Name}({steps})...");
+            ////        Logger.LogVerbose($"Processor {hostService.Processor.Name}: Prebuilding...");
+            ////        using (new LoggerPhaseScope("Prebuild", LogLevel.Verbose))
+            ////        {
+            ////            Prebuild(hostService);
+            ////        }
+
+            ////        // Register all the delegates to handler
+            ////        if (hostService.TableOfContentRestructions != null)
+            ////        {
+            ////            lock (_restructions)
+            ////            {
+            ////                _restructions.AddRange(hostService.TableOfContentRestructions);
+            ////            }
+            ////        }
+            ////    }
+            ////}
+
             hostServices.RunAll(hostService =>
             {
                 using (new LoggerPhaseScope(hostService.Processor.Name, LogLevel.Verbose))

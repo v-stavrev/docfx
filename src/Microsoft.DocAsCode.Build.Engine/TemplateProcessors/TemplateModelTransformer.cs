@@ -100,6 +100,8 @@ namespace Microsoft.DocAsCode.Build.Engine
                     object viewModel = null;
                     try
                     {
+                        model["locale"] = "en-us";
+
                         viewModel = template.TransformModel(model);
                     }
                     catch (Exception e)
