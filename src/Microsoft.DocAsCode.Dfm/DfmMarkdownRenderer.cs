@@ -18,6 +18,13 @@ namespace Microsoft.DocAsCode.Dfm
                     : $"[!INCLUDE [{token.Name}]({src} \"{token.Title}\")]";
         }
 
+        public virtual StringBuffer Render(IMarkdownRenderer render, DfmIncludeInlineShortcutToken token, MarkdownInlineContext context)
+        {
+            var src = token.Src.Replace(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            return $"@@{token.Identifier}";
+        }
+
         public virtual StringBuffer Render(IMarkdownRenderer render, DfmIncludeBlockToken token, MarkdownBlockContext context)
         {
             var src = token.Src.Replace(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);

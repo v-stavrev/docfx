@@ -51,6 +51,14 @@ namespace Microsoft.DocAsCode.Dfm
             }
         }
 
+        public virtual StringBuffer Render(IMarkdownRenderer renderer, DfmIncludeInlineShortcutToken token, MarkdownInlineContext context)
+        {
+            lock (_inlineInclusionHelper)
+            {
+                return _inlineInclusionHelper.Load(renderer, token.Src, token.SourceInfo, context, (DfmEngine)renderer.Engine);
+            }
+        }
+
         public virtual StringBuffer Render(IMarkdownRenderer renderer, DfmYamlHeaderBlockToken token, MarkdownBlockContext context)
         {
             if (string.IsNullOrEmpty(token.Content))

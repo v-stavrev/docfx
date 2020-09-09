@@ -27,6 +27,11 @@ namespace Microsoft.DocAsCode.Dfm
             return Insert(token, ExposeTokenNameInDfm(token));
         }
 
+        public virtual StringBuffer Render(IMarkdownRenderer renderer, DfmIncludeInlineShortcutToken token, MarkdownInlineContext context)
+        {
+            return Insert(token, ExposeTokenNameInDfm(token));
+        }
+
         public virtual StringBuffer Render(IMarkdownRenderer renderer, DfmYamlHeaderBlockToken token, MarkdownBlockContext context)
         {
             return Insert(token, $"{ExposeTokenNameInDfm(token)}>{Escape(token.Content)}");
