@@ -48,7 +48,7 @@ namespace Microsoft.DocAsCode.Dfm
 
             // xref link inline rule must be before MarkdownLinkInlineRule
             inlineRules.Insert(index, new DfmIncludeInlineRule());
-            inlineRules.Insert(index, new DfmIncludeInlineShortcutRule())
+            inlineRules.Insert(index, new DfmIncludeInlineShortcutRule());
 
             Replace<MarkdownTextInlineRule, DfmTextInlineRule>(inlineRules);
 
