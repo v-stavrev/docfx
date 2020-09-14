@@ -29,6 +29,8 @@ namespace Microsoft.DocAsCode.MarkdigEngine.Extensions
             var inlineShortcut = new InclusionInlineShortcutParser();
             pipeline.InlineParsers.InsertBefore<XrefInlineShortParser>(inlineShortcut);
             pipeline.InlineParsers.AddIfNotAlready(inlineShortcut);
+
+            pipeline.BlockParsers.AddIfNotAlready<InclusionShortcutBlockParser>();
         }
 
         public void Setup(MarkdownPipeline pipeline, IMarkdownRenderer renderer)
@@ -52,6 +54,11 @@ namespace Microsoft.DocAsCode.MarkdigEngine.Extensions
                 if (!htmlRenderer.ObjectRenderers.Contains<HtmlInclusionBlockRenderer>())
                 {
                     htmlRenderer.ObjectRenderers.Insert(0, new HtmlInclusionBlockRenderer(_context, pipeline));
+                }
+
+                if (!htmlRenderer.ObjectRenderers.Contains<HtmlInclusionShortcutBlocktRenderer>())
+                {
+                    htmlRenderer.ObjectRenderers.Insert(0, new HtmlInclusionShortcutBlocktRenderer(_context, pipeline));
                 }
             }
         }

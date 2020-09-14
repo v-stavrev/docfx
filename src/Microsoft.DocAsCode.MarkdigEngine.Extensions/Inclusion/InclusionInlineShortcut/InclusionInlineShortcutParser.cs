@@ -25,32 +25,15 @@ namespace Microsoft.DocAsCode.MarkdigEngine.Extensions
                 return false;
             }
 
-            var str = StringBuilderCache.Local();
-
-            str.Append(slice.CurrentChar);
-
-            var c = slice.NextChar();
-            while (c.IsAlphaNumeric())
-            {
-                str.Append(c);
-                c = slice.NextChar();
-            }
-
-            if (str.Length == 0)
-            {
-                return false;
-            }
-
-            string symbol = str.ToString();
-            if (string.IsNullOrWhiteSpace(symbol))
+            if (!ExtensionsHelper.MatchIdentifier(ref slice, out string identifier))
             {
                 return false;
             }
 
             processor.Inline = new InclusionInlineShortcut
             {
-                RawFilename = symbol,
-                IncludedFilePath = $"~/includes/{symbol}.md",
+                Identifier = identifier,
+                IncludedFilePath = $"~/includes/{identifier}.md",
                 Line = line,
                 Column = column,
                 Span = new SourceSpan(startPosition, processor.GetSourcePosition(slice.Start - 1)),

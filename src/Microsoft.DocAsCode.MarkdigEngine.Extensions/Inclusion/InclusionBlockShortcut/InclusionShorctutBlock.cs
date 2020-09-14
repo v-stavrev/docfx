@@ -3,9 +3,10 @@
 
 namespace Microsoft.DocAsCode.MarkdigEngine.Extensions
 {
-    using Markdig.Syntax.Inlines;
+    using Markdig.Parsers;
+    using Markdig.Syntax;
 
-    public class InclusionInlineShortcut : ContainerInline
+    public class InclusionShorctutBlock : ContainerBlock
     {
         public string Identifier { get; set; }
 
@@ -14,5 +15,10 @@ namespace Microsoft.DocAsCode.MarkdigEngine.Extensions
         public object ResolvedFilePath { get; set; }
 
         public string GetRawToken() => $"@@{Identifier}";
+
+        public InclusionShorctutBlock(BlockParser parser): base(parser)
+        {
+
+        }
     }
 }
