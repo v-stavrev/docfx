@@ -42,13 +42,14 @@ namespace Microsoft.DocAsCode.Dfm
             {
                 throw new ArgumentException("MarkdownLinkInlineRule should exist!");
             }
+
             inlineRules.Insert(index + 1, new DfmXrefShortcutInlineRule());
             inlineRules.Insert(index + 1, new DfmEmailInlineRule());
             inlineRules.Insert(index + 1, new DfmFencesInlineRule());
+            inlineRules.Insert(index + 1, new DfmIncludeInlineShortcutRule());
 
             // xref link inline rule must be before MarkdownLinkInlineRule
             inlineRules.Insert(index, new DfmIncludeInlineRule());
-            inlineRules.Insert(index, new DfmIncludeInlineShortcutRule());
 
             Replace<MarkdownTextInlineRule, DfmTextInlineRule>(inlineRules);
 

@@ -14,7 +14,7 @@ namespace Microsoft.DocAsCode.Dfm
     public class DfmIncludeInlineShortcutRule : IMarkdownRule
     {
         public virtual string Name => "DfmIncludeInlineShortcut";
-        private static readonly Regex _inlineIncludeRegex = new Regex(@"@@(?<identifier>\w+)", RegexOptions.Compiled | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(10));
+        internal static readonly Regex _inlineIncludeRegex = new Regex(@"@@(?<identifier>\w+)", RegexOptions.Compiled | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(10));
         public virtual Regex Include => _inlineIncludeRegex;
 
         public IMarkdownToken TryMatch(IMarkdownParser parser, IMarkdownParsingContext context)

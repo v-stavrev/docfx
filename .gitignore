@@ -58,3 +58,4 @@ src/docfx.website.themes/default/fonts/
 ###############
 tools/Deployment/.vscode/
 tools/Deployment/out/
+/package_version_temp.txt
