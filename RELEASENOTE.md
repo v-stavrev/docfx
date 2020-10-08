@@ -1,5 +1,49 @@
-Version Notes (Current Version: v2.56.2)
+Version Notes (Current Version: v2.56.3)
 =======================================
+
+v2.56.3
+-----------
+1. Implement [!list] operator. 
+
+    If you have `file1.md` with the following front matter:
+
+    ```
+    ---
+    variable1: value1
+    variable2: value2
+    variable3: value3
+    ---
+    ```
+
+    and `file2.md` with the following front matter
+
+    ```
+    ---
+    variable1: value1
+    variable3: value3
+    ---
+    ```
+
+    then the following syntax `[!list variable1=value1 variable3=value3]`
+    will produce the following html:
+
+    ```
+    <ul class="erp-list">
+        <li class="erp-list-item"><a href="/absolute/path/to/file1.html">Title Grabbed From file1.md</a></li>
+        <li class="erp-list-item"><a href="/absolute/path/to/file2.html">Title Grabbed From file2.md</a></li>
+    </ul>
+    ```
+
+    Both the variable name and the variable value can be quoted with double-quotation marks (")
+    
+2. Implement shortcut syntax for inclusion. 
+    
+    1. Create folder called include in the project root
+    2. Add Conceptual documents there
+    3. In any conceptual document you can @@name-of-file-inside-include-dir-without-extension, 
+    and the rendered contents of the file will be included in your markup
+    
+    This works both for inlines and blocks.
 
 v2.56.2
 -----------
