@@ -4,10 +4,12 @@
 namespace Microsoft.DocAsCode.Plugins
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
 
     using Newtonsoft.Json;
 
+    [System.Diagnostics.DebuggerDisplay("FileAndType file={File}")]
     public sealed class FileAndType
         : IEquatable<FileAndType>
     {
@@ -72,6 +74,9 @@ namespace Microsoft.DocAsCode.Plugins
 
         [JsonProperty("destinationDir")]
         public string DestinationDir { get; set; }
+
+        //[JsonProperty("frontmatterVariables")]
+        //public HashSet<string> FrontmatterVariables { get; }
 
         public FileAndType ChangeBaseDir(string baseDir)
         {

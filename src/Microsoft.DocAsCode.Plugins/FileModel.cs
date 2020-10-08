@@ -8,6 +8,7 @@ namespace Microsoft.DocAsCode.Plugins
     using System.Dynamic;
     using System.Runtime.Serialization;
 
+    [System.Diagnostics.DebuggerDisplay("FileModel {Key}")]
     public sealed class FileModel : IDisposable
     {
         private ImmutableArray<UidDefinition> _uids = ImmutableArray<UidDefinition>.Empty;

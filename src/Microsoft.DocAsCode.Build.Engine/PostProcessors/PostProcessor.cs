@@ -5,6 +5,7 @@ namespace Microsoft.DocAsCode.Build.Engine
 {
     using Microsoft.DocAsCode.Plugins;
 
+    [System.Diagnostics.DebuggerDisplay("PostProcessor {ContractName}")]
     internal sealed class PostProcessor
     {
         public string ContractName { get; set; }

@@ -17,7 +17,8 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
     [Export(nameof(ConceptualDocumentProcessor), typeof(IDocumentBuildStep))]
     public class BuildConceptualDocument : BaseDocumentBuildStep, ISupportIncrementalBuildStep
     {
-        private const string ConceptualKey = Constants.PropertyName.Conceptual;
+        internal const string ConceptualKey = Constants.PropertyName.Conceptual;
+        internal const string FrontMatter = "frontMatter";
         private const string DocumentTypeKey = "documentType";
 
         public override string Name => nameof(BuildConceptualDocument);
@@ -41,6 +42,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                 model.ManifestProperties.rawTitle = htmlInfo.RawTitle;
             }
             content[ConceptualKey] = htmlInfo.Content;
+            content[FrontMatter] = result.YamlHeader;
 
             if (result.YamlHeader?.Count > 0)
             {
