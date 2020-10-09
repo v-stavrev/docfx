@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Composition;
 using System.IO;
@@ -21,30 +22,108 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
             new Regex(@"\[!list (?<content>.+)\]", RegexOptions.Compiled);
         // match key=value or "key"="value", or any combinaiton of either
         private static readonly Regex keyValueExpression = 
-            new Regex(@"((?<quotedKey>"".+"")|(?<key>[a-zA-Z_\-\.]+))=((?<quotedValue>"".+"")|(?<value>[a-zA-Z_\-\.]+))", RegexOptions.Compiled);
-        
+            new Regex(@"(?:(?:""(?<quotedKey>[^""]+)"")|(?<key>[a-zA-Z_\-\.]+))=(?:(?:""(?<quotedValue>[^""]+)"")|(?<value>[a-zA-Z_\-\.]+))", RegexOptions.Compiled);
+
+        private const string Frontmatter = "_frontmatter";
+
+        private Dictionary<FrontmatterVariableAndValue, List<FileModel>> modelsPerVariableWithValue;
+
         public override string Name => nameof(ProcessLists);
 
         // after BuildConceptualDocument
-        public override int BuildOrder => 1;
+        public override int BuildOrder => -1;
 
-        public override void Postbuild(ImmutableList<FileModel> models, IHostService host)
+        public override IEnumerable<FileModel> Prebuild(ImmutableList<FileModel> models, IHostService host)
         {
-            // cache for faster lookup
-            Dictionary<FrontmatterVariableAndValue, List<FileModel>> modelsPerVariableWithValue 
-                = BuildModelsWithFrontmatterVariableValues(models);
-
-            foreach (var model in models)
+            // DO the most stupid thing in the world
+            Parallel.ForEach(models, model =>
             {
-                BuildList(modelsPerVariableWithValue, model);
+                var yamlHeader = ParseYamlHeader(model);
+                ((Dictionary<string, object>)model.Content)[Frontmatter] = yamlHeader;
+            });
+
+            modelsPerVariableWithValue = BuildModelsWithFrontmatterVariableValues(models);
+
+            return models;
+        }
+
+        private FrontmatterVariableAndValue[] ParseYamlHeader(FileModel model)
+        {
+            var content = (Dictionary<string, object>)model.Content;
+            var markdown = (string)content[Constants.PropertyName.Conceptual];
+            using var reader = new StringReader(markdown);
+            HashSet<FrontmatterVariableAndValue> values = null;
+            bool isFirst = true;
+            bool isClosed = false;
+            string line;
+            char[] separator = new char[] { ':' };
+            while (!isClosed && (line = reader.ReadLine()) != null)
+            {
+                if (isFirst)
+                {
+                    if (!line.StartsWith("---"))
+                    {
+                        return Array.Empty<FrontmatterVariableAndValue>();
+                    }
+                    isFirst = false;
+                    values = new HashSet<FrontmatterVariableAndValue>();
+                }
+                else
+                {
+                    if (line.StartsWith("---"))
+                    {
+                        isClosed = true;
+                    }
+                    else
+                    {
+                        string[] parts = line.Split(separator, 2);
+                        if (parts.Length == 2)
+                        {
+                            var fv = new FrontmatterVariableAndValue(parts[0].Trim(), parts[1].Trim());
+                            values.Add(fv);
+                        }
+                    }
+                }
+            }
+
+            if (isFirst || !isClosed)
+            {
+                return Array.Empty<FrontmatterVariableAndValue>();
+            }
+            else
+            {
+                return values.ToArray();
             }
         }
 
-        private static readonly List<FileModel> EmptyModelsList = new List<FileModel>();
+        private static Dictionary<FrontmatterVariableAndValue, List<FileModel>> BuildModelsWithFrontmatterVariableValues(
+            ImmutableList<FileModel> models)
+        {
+            var modelsPerVariableWithValue = new Dictionary<FrontmatterVariableAndValue, List<FileModel>>();
+            foreach (var model in models)
+            {
+                if ((model.Content is Dictionary<string, object> content
+                    && content.TryGetValue(Frontmatter, out var frontMatterRaw)
+                    && frontMatterRaw is FrontmatterVariableAndValue[] frontMatter))
+                {
+                    foreach (var variableWithValue in frontMatter)
+                    {
+                        if (!modelsPerVariableWithValue.TryGetValue(variableWithValue, out var appropriateModels))
+                        {
+                            appropriateModels = new List<FileModel>();
+                            modelsPerVariableWithValue.Add(variableWithValue, appropriateModels);
+                        }
+                        appropriateModels.Add(model);
+                    }
+                }
+            }
 
-        private static List<FileModel> ModelsWithAllVariables(
-            Dictionary<FrontmatterVariableAndValue, List<FileModel>> modelsPerVariableWithValue,
-            List<FrontmatterVariableAndValue> requiredVariables)
+            return modelsPerVariableWithValue;
+        }
+
+        private static LinkToArticle[] ModelsWithAllVariables(
+           Dictionary<FrontmatterVariableAndValue, List<FileModel>> modelsPerVariableWithValue,
+           List<FrontmatterVariableAndValue> requiredVariables)
         {
             HashSet<FileModel> models = new HashSet<FileModel>();
             int countSatisfied = 0;
@@ -60,28 +139,108 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                     break;
                 }
             }
-            
+
             if (countSatisfied == requiredVariables.Count)
             {
-                return models.ToList();
+                LinkToArticle[] sorted = new LinkToArticle[models.Count];
+                int index = 0;
+                foreach (var item in models)
+                {
+                    var relatedContent = (Dictionary<string, object>)item.Content;
+
+                    string outputDir = EnvironmentContext.OutputDirectory;
+                    string title = GetTitle(item);
+                    string href = item.Key;
+
+                    sorted[index] = new LinkToArticle(title, href);
+                    index++;
+                }
+                Array.Sort(sorted);
+                return sorted;
             }
             else
             {
-                return EmptyModelsList;
+                return Array.Empty<LinkToArticle>();
             }
         }
 
-        private static void BuildList(
-            Dictionary<FrontmatterVariableAndValue, List<FileModel>> modelsPerVariableWithValue,
-            FileModel model)
+        static string GetTitle(FileModel model)
+        {
+            Dictionary<string, object> content = (Dictionary<string, object>)model.Content;
+            FrontmatterVariableAndValue[] frontmatter = (FrontmatterVariableAndValue[])content[Frontmatter];
+            string markdown = (string)content[Constants.PropertyName.Conceptual];
+
+            // title from YAML header
+            foreach (var fmv in frontmatter)
+            {
+                if ("title" == fmv.Key)
+                {
+                    return fmv.OriginalValue;
+                }
+            }
+
+            object metadataValue;
+
+            if (content.TryGetValue(Constants.PropertyName.TitleOverwriteH1, out metadataValue)
+                && metadataValue is string titleOverwrite && !string.IsNullOrEmpty(titleOverwrite))
+            {
+                return titleOverwrite;
+            }
+
+            if (content.TryGetValue(Constants.PropertyName.Title, out metadataValue)
+                && metadataValue is string titleFromMetadata && !string.IsNullOrEmpty(titleFromMetadata))
+            {
+                return titleFromMetadata;
+            }
+
+            string titleFromMarkdown = GetTitleFromMarkdown(markdown);
+            if (!string.IsNullOrEmpty(titleFromMarkdown))
+                return titleFromMarkdown;
+
+            return null;
+        }
+
+        static readonly Regex headingExpression = new Regex(@"^#{1,3}(?<title>.+)$", RegexOptions.Compiled);
+
+        static string GetTitleFromMarkdown(string markdown)
+        {
+            using var reader = new StringReader(markdown);
+
+            bool isFirstLine = false;
+            bool insideFrontmatter = false;
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                // skip frontmatter
+                if (isFirstLine)
+                {
+                    isFirstLine = false;
+                    if (line.StartsWith("---"))
+                        insideFrontmatter = true;
+                }
+                else if (insideFrontmatter)
+                {
+                    if (line.StartsWith("---"))
+                        insideFrontmatter = false;
+                    continue;
+                }
+
+                Match m;
+                
+                m = headingExpression.Match(line);
+                if (m.Success) return m.Groups["title"].Value;
+            }
+            return null;
+        }
+
+        public override void Build(FileModel model, IHostService host)
         {
             var content = (Dictionary<string, object>)model.Content;
-            var frontMatter = (IImmutableDictionary<string, object>)content[BuildConceptualDocument.FrontMatter];
-            var convertedHtml = (string)content[BuildConceptualDocument.ConceptualKey];
-
-            var htmlWithLists = listExpression.Replace(convertedHtml, listOperatorMatch =>
+            var initialMarkdown = (string)content[BuildConceptualDocument.ConceptualKey];
+            bool change = false;
+            var fixedMarkdown = listExpression.Replace(initialMarkdown, listOperatorMatch =>
             {
-                var listOperator = listOperatorMatch.Groups["content"].Value;
+                var listOperator = listOperatorMatch.Groups["content"].Value.Replace("&quot;", "\"");
                 var output = new StringBuilder();
                 var matches = keyValueExpression.Matches(listOperator);
 
@@ -112,63 +271,58 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                 if (requiredVariablesAndValues.Count > 0)
                 {
                     var relatedModels = ModelsWithAllVariables(modelsPerVariableWithValue, requiredVariablesAndValues);
-                    
-                    if (relatedModels.Count > 0)
+
+                    if (relatedModels.Length > 0)
                     {
-                        output.Append("\n<ul class='erp-list'>\n");
+                        output.Append("\n\n");
                         foreach (var related in relatedModels)
                         {
-                            var relatedContent = (Dictionary<string, object>)related.Content;
-
-                            string title = (string)relatedContent[Constants.PropertyName.Title];
-                            string href = (string)related.Key;
-                            if (href.StartsWith("~")) href = href.Substring(1);
-                            if (href.EndsWith(".md", System.StringComparison.OrdinalIgnoreCase))
-                                href = Path.ChangeExtension(href, ".html");
-                            
-                            output.Append("  <li class='erp-list-item'><a href=\"").Append(href).Append("\">")
-                                .Append(title).Append("</a></li>\n");
+                            output
+                                .Append("* [")
+                                .Append(related.Title ?? related.Href)
+                                .Append("](")
+                                .Append(related.Href)
+                                .Append(")\n");
                         }
-                        output.Append("</ul>");
+                        output.Append("\n");
                         listIsRendered = true;
                     }
                 }
 
                 if (!listIsRendered && !string.IsNullOrEmpty(defaultText))
                 {
-                    output.Append("<p>").Append(defaultText).Append("</p>");
+                    output.Append("\n").Append(defaultText).Append("\n");
+                }
+
+                if (output.Length != 0)
+                {
+                    change = true;
                 }
 
                 return output.ToString();
             });
 
-            content[BuildConceptualDocument.ConceptualKey] = htmlWithLists;
+            if (change)
+            {
+                content[BuildConceptualDocument.ConceptualKey] = fixedMarkdown;
+            }
         }
 
-        private static Dictionary<FrontmatterVariableAndValue, List<FileModel>> BuildModelsWithFrontmatterVariableValues(ImmutableList<FileModel> models)
+        struct LinkToArticle: IComparable<LinkToArticle>
         {
-            var modelsPerVariableWithValue = new Dictionary<FrontmatterVariableAndValue, List<FileModel>>();
-            foreach (var model in models)
-            {
-                if ((model.Content is Dictionary<string, object> content
-                    && content.TryGetValue(BuildConceptualDocument.FrontMatter, out var frontMatterRaw)
-                    && frontMatterRaw is IImmutableDictionary<string, object> frontMatter))
-                {
-                    foreach (var kvp in frontMatter)
-                    {
-                        var variableWithValue = new FrontmatterVariableAndValue(kvp);
+            public readonly string Title;
+            public readonly string Href;
 
-                        if (!modelsPerVariableWithValue.TryGetValue(variableWithValue, out var appropriateModels))
-                        {
-                            appropriateModels = new List<FileModel>();
-                            modelsPerVariableWithValue.Add(variableWithValue, appropriateModels);
-                        }
-                        appropriateModels.Add(model);
-                    }
-                }
+            public LinkToArticle(string title, string href)
+            {
+                Title = title;
+                Href = href;
             }
 
-            return modelsPerVariableWithValue;
+            public int CompareTo(LinkToArticle other)
+            {
+                return string.Compare(Title ?? "", other.Title ?? "");
+            }
         }
     }
 }

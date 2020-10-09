@@ -1,5 +1,12 @@
-Version Notes (Current Version: v2.56.3)
+Version Notes (Current Version: v2.56.3.1)
 =======================================
+
+v2.56.3.1
+-----------
+1. Sort items by title in [!list] operator
+2. [!list] operator now generates Mardkdown before BuildConceptualDocument, so that
+    it never has to resolve links itself. Also, BuildConceptualDocument can do all the
+    link processing it needs in order to keep things consistent.
 
 v2.56.3
 -----------

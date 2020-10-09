@@ -9,6 +9,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
     {
         public readonly string Key;
         public readonly string Value;
+        public readonly string OriginalValue;
 
         private string DebuggerDisplay => $"{Key}:{Value}";
 
@@ -16,12 +17,14 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
         {
             Key = key.ToLowerInvariant();
             Value = value?.ToLowerInvariant() ?? string.Empty;
+            OriginalValue = value;
         }
 
         public FrontmatterVariableAndValue(KeyValuePair<string, object> keyValuePair)
         {
             Key = keyValuePair.Key.ToLowerInvariant();
-            Value = keyValuePair.Value?.ToString().ToLowerInvariant() ?? string.Empty;
+            OriginalValue = keyValuePair.Value?.ToString() ?? string.Empty;
+            Value = OriginalValue.ToLowerInvariant();
         }
 
         public bool Equals(FrontmatterVariableAndValue other)
