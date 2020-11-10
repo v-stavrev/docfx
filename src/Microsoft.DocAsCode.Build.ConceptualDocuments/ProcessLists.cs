@@ -121,30 +121,62 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
             return modelsPerVariableWithValue;
         }
 
+        private static FrontmatterVariableAndValue[] GetFromatter(FileModel model)
+        {
+            if (model != null && model.Content is IDictionary<string, object> dict
+                && dict.TryGetValue(Frontmatter, out object fmRaw)
+                && fmRaw is FrontmatterVariableAndValue[] fmArray)
+            {
+                return fmArray;
+            }
+            else
+            {
+                return Array.Empty<FrontmatterVariableAndValue>();
+            }
+        }
+
         private static LinkToArticle[] ModelsWithAllVariables(
            Dictionary<FrontmatterVariableAndValue, List<FileModel>> modelsPerVariableWithValue,
            List<FrontmatterVariableAndValue> requiredVariables)
         {
-            HashSet<FileModel> models = new HashSet<FileModel>();
-            int countSatisfied = 0;
+            // pick all models that satisfy at least one variable
+            bool earlyBreak = false;
+            HashSet<FileModel> reducedSet = new HashSet<FileModel>();
             foreach (var variable in requiredVariables)
             {
                 if (modelsPerVariableWithValue.TryGetValue(variable, out var relatedModels))
                 {
-                    relatedModels.ForEach(x => models.Add(x));
-                    countSatisfied++;
+                    relatedModels.ForEach(x => reducedSet.Add(x));
                 }
                 else
                 {
+                    // at least one not satisfied => early break
+                    earlyBreak = true;
                     break;
                 }
             }
 
-            if (countSatisfied == requiredVariables.Count)
+            if (earlyBreak)
             {
-                LinkToArticle[] sorted = new LinkToArticle[models.Count];
+                return Array.Empty<LinkToArticle>();
+            }
+            
+            HashSet<FileModel> modelsSatisfyingAllVariables = new HashSet<FileModel>();
+            foreach (var model in reducedSet)
+            {
+                var fm = GetFromatter(model);
+                var satisfied = requiredVariables.All(x => fm.Contains(x));
+                if (satisfied)
+                {
+                    modelsSatisfyingAllVariables.Add(model);
+                }
+            }
+
+            if (modelsSatisfyingAllVariables.Count > 0)
+            {
+                LinkToArticle[] sorted = new LinkToArticle[modelsSatisfyingAllVariables.Count];
                 int index = 0;
-                foreach (var item in models)
+                foreach (var item in modelsSatisfyingAllVariables)
                 {
                     var relatedContent = (Dictionary<string, object>)item.Content;
 

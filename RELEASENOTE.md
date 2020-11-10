@@ -1,5 +1,10 @@
-Version Notes (Current Version: v2.56.3.1)
+Version Notes (Current Version: v2.56.3.2)
 =======================================
+
+v2.56.3.2
+-----------
+1. Fix bug where [!list] operator would work as OR instead of AND. This will slightly slow down compilation 
+    for pages that use this tag.
 
 v2.56.3.1
 -----------
