@@ -1,5 +1,9 @@
-Version Notes (Current Version: v2.56.3.2)
+Version Notes (Current Version: v2.56.3.3)
 =======================================
+
+v2.56.3.3
+-----------
+1. Enable [Grid Tables](https://github.com/lunet-io/markdig/blob/master/src/Markdig.Tests/Specs/GridTableSpecs.md)
 
 v2.56.3.2
 -----------

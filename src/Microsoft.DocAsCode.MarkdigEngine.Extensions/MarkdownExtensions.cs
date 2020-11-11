@@ -19,6 +19,7 @@ namespace Microsoft.DocAsCode.MarkdigEngine.Extensions
                 .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
                 .UseAutoIdentifiers(AutoIdentifierOptions.GitHub)
                 .UseMediaLinks()
+                .UseGridTables()
                 .UsePipeTables()
                 .UseAutoLinks()
                 .UseHeadingIdRewriter()
