@@ -3,7 +3,8 @@ param(
     [switch] $raw = $false,
     [switch] $prod = $false,
     [switch] $skipTests = $false,
-    [switch] $release = $false
+    [switch] $release = $false,
+    [string] $fallbackAbbrev = "erpbg-dev"
 )
 ################################################################################################
 # Usage:
@@ -91,7 +92,15 @@ if ($prod -eq $true) {
     $assemblyVersion = (($version + '0') -join '.').Substring(1)
     $assemblyFileVersion = (($version + $revision) -join '.').Substring(1)
     if ($branch -ne $releaseBranch) {
-        $abbrev = $commitInfo[2].Substring(0, 7)
+        $abbrev = $fallbackAbbrev
+        try {
+            $abbrev = $commitInfo[2].Substring(0, 7)    
+        }
+        catch {
+            Write-Host "Failed to parse commit info, using -fallbackAbbrev ($fallbackAbbrev), as specified at command line"
+            $abbrev = $fallbackAbbrev
+        }
+        
         $packageVersion = ((($version -join '.'), "b", $revision, $abbrev) -join '-').Substring(1)
     }
     else {
