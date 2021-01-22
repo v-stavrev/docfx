@@ -1,5 +1,26 @@
-Version Notes (Current Version: v2.56.3.3)
+Version Notes (Current Version: v2.56.4)
 =======================================
+
+v.2.56.4
+-----------
+1. Implement additional functionality for [!list] operator
+
+    * [!list folder="pattern"] - checks if folder mathes file pattern (*, ?). Pattern must be full path (starting with ~),
+    or '.', which assumes current directory of the file being processed. Case sensitive
+    * [!list file="sales*"] - checks if file name matches pattern (*, ?). Case sensitive. File name, not full path, is matched.
+    * [!list depth=xx] - checks each model if it is up to 2 subdirectories of this file's directory
+    * [!list limit=xx] - limits result up to xx items
+    * [!list style=xx] - either bullets, numbered lists, or header tags
+    * [!list exclude="pattern"] - checks file name if it matches pattern (*, ?). Pattern is case-sensitive. If the pattern 
+    is matched, the file is excluded. File name, not full path, is matched.
+    * Default values:
+        * folder="."
+        * depth=2
+        * file="*"
+        * limit=10
+        * style=bullets
+        * exclude='' - no matter the pattern, list always excludes the currently matches file
+
 
 v2.56.3.3
 -----------
