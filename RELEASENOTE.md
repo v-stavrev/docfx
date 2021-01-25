@@ -1,5 +1,13 @@
-Version Notes (Current Version: v2.56.4)
+Version Notes (Current Version: v2.56.5)
 =======================================
+
+v.2.56.5
+-----------
+1. Fix a bug where StackOverflow would happen while building TOC.
+Hierarchical file and directory structure was partially stored in FileModel["content"], which
+gets stored in JSON. Since this information is used solely by [!list], it is stored privately, outside
+the FileModel
+
 
 v.2.56.4
 -----------

@@ -34,11 +34,13 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
         private static readonly Regex keyValueExpression = 
             new Regex(@"(?:(?:""(?<quotedKey>[^""]+)"")|(?<key>[a-zA-Z_\-\.]+))=(?:(?:""(?<quotedValue>[^""]+)"")|(?<value>[a-zA-Z_\-\.]+))", RegexOptions.Compiled);
 
-        
-
         private ModelsPerFrontmatter modelsPerVariableWithValue = new ModelsPerFrontmatter();
         private ImmutableList<FileModel> allModels = ImmutableList<FileModel>.Empty;
         private VirtualDirectory rootDirectory = new VirtualDirectory("~", "~");
+        private ImmutableDictionary<string, VirtualDirectory> virtualDirectoryCache = 
+            ImmutableDictionary<string, VirtualDirectory>.Empty;
+        private ImmutableDictionary<string, VirtualFile> virtualFileCache = 
+            ImmutableDictionary<string, VirtualFile>.Empty;
 
         public override string Name => nameof(ProcessLists);
 
@@ -67,6 +69,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
         {
             rootDirectory = new VirtualDirectory("~", "~");
             Dictionary<string, VirtualDirectory> diretories = new Dictionary<string, VirtualDirectory>();
+            Dictionary<string, VirtualFile> files = new Dictionary<string, VirtualFile>();
             diretories.Add("~", rootDirectory);
 
             (string name, string fullName) ParseFileBaseDirectory(string key)
@@ -95,6 +98,16 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                 return parent;
             }
 
+            VirtualFile GetOrCreateFile(FileModel model)
+            {
+                if (!files.TryGetValue(model.Key, out var file))
+                {
+                    file = new VirtualFile(model);
+                    files.Add(model.Key, file);
+                }
+                return file;
+            }
+
             VirtualDirectory GetDir(string name, string fullPath)
             {
                 if (!diretories.TryGetValue(fullPath, out var dir))
@@ -116,10 +129,39 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                 var (name, fullPath) = ParseFileBaseDirectory(model.Key);
                 var dir = GetDir(name, fullPath);
 
-                var vf = model.GetVirtualFile();
+                var vf = GetOrCreateFile(model);
                 vf.Directory = dir;
 
                 dir.Files.Add(vf);
+            }
+
+            var dirsBuilder = virtualDirectoryCache.ToBuilder();
+            dirsBuilder.Clear();
+            dirsBuilder.AddRange(diretories);
+            virtualDirectoryCache = dirsBuilder.ToImmutable();
+
+            var filesBuilder = virtualFileCache.ToBuilder();
+            filesBuilder.Clear();
+            filesBuilder.AddRange(files);
+            virtualFileCache = filesBuilder.ToImmutable();
+        }
+
+        private VirtualDirectory? GetVirtualDirectory(FileModel model)
+        {
+            VirtualFile virtFile = GetVirtualFile(model);
+            VirtualDirectory? virtDir = virtFile.Directory;
+            return virtDir;
+        }
+
+        private VirtualFile GetVirtualFile(FileModel model)
+        {
+            if (virtualFileCache.TryGetValue(model.Key, out var file))
+            {
+                return file;
+            }
+            else
+            {
+                throw new KeyNotFoundException(model.Key);
             }
         }
 
@@ -251,8 +293,8 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
 
         private int CalculateDepthRelativeTo(FileModel root, FileModel needle)
         {
-            var vfRoot = root.GetVirtualFile();
-            var vfNeedle = root.GetVirtualFile();
+            var vfRoot = GetVirtualFile(root);
+            var vfNeedle = GetVirtualFile(needle);
 
             int depth = 0;
             VirtualDirectory? needleDir = vfNeedle.Directory;
@@ -280,9 +322,9 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
             {
                 string pattern = list.FolderPattern;
                 if (pattern == ".")
-                    pattern = (list.File.GetVirtualDirectory()?.FullPath ?? "") + "*";
+                    pattern = (GetVirtualDirectory(list.File)?.FullPath ?? "") + "*";
                 src = src
-                    .Where(x => MatchesFilePattern(x.GetVirtualDirectory()?.FullPath ?? "", pattern))
+                    .Where(x => MatchesFilePattern(GetVirtualDirectory(x)?.FullPath ?? "", pattern))
                     .ToArray();
             }
 
@@ -297,7 +339,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                 src = src
                     .Where(x => 
                         x != list.File 
-                        && !MatchesFilePattern(x.GetVirtualFile().Name, list.ExcludePattern)
+                        && !MatchesFilePattern(GetVirtualFile(x).Name, list.ExcludePattern)
                     ).ToArray();
             }
 
@@ -313,7 +355,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
             if (!string.IsNullOrEmpty(list.FilePattern) && list.FilePattern != "*")
             {
                 src = src
-                    .Where(x => MatchesFilePattern(x.GetVirtualFile().Name, list.FilePattern))
+                    .Where(x => MatchesFilePattern(GetVirtualFile(x).Name, list.FilePattern))
                     .ToArray();
             }
 
@@ -863,29 +905,6 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
     static class PrivateFileModelExtensions
     {
         private const string Frontmatter = "_frontmatter";
-        private const string Directory = "_virtual_directory";
-        private const string File = "_virtual_file";
-
-        public static VirtualDirectory? GetVirtualDirectory(this FileModel model)
-        {
-            return model.GetVirtualFile().Directory;
-        }
-
-        public static VirtualFile GetVirtualFile(this FileModel model)
-        {
-            var content = model.GetContent();
-            VirtualFile virtualFile;
-            if (!content.TryGetValue(File, out object fileRaw))
-            {
-                virtualFile = new VirtualFile(model);
-                content.Add(File, virtualFile);
-            }
-            else
-            {
-                virtualFile = (VirtualFile)fileRaw;
-            }
-            return virtualFile;
-        }
 
         public static IDictionary<string, object> GetContent(this FileModel model)
         {
