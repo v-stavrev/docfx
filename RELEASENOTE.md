@@ -1,5 +1,10 @@
-Version Notes (Current Version: v2.56.5)
+Version Notes (Current Version: v2.56.6)
 =======================================
+
+v.2.56.6
+-----------
+1. Fix a bug with default values for [!list]. folder="" and depth=-1 allow for the operator
+to work with conditions as expected
 
 v.2.56.5
 -----------

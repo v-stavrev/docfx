@@ -631,9 +631,9 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
         class ListContextBuilder
         {
             private string filePattern = "*";
-            private string folderPattern = ".";
+            private string folderPattern = "";
             private string excludePattern = "";
-            private int depth = 2;
+            private int depth = -1;
             private int limit = 10;
             private ListStyle style = ListStyle.Bullet;
             private string defaultText = "";
