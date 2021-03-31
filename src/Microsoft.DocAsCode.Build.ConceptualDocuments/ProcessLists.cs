@@ -14,33 +14,28 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.DocAsCode.Build.Common;
+using Microsoft.DocAsCode.Build.ConceptualDocuments.ListOperatorHelpers;
 using Microsoft.DocAsCode.Common;
 using Microsoft.DocAsCode.DataContracts.Common;
 using Microsoft.DocAsCode.Plugins;
-
-using ModelsPerFrontmatter = System.Collections.Generic.Dictionary<
-    Microsoft.DocAsCode.Build.ConceptualDocuments.FrontmatterVariableAndValue,
-    System.Collections.Generic.List<Microsoft.DocAsCode.Plugins.FileModel>>;
 
 namespace Microsoft.DocAsCode.Build.ConceptualDocuments
 {
     [Export(nameof(ConceptualDocumentProcessor), typeof(IDocumentBuildStep))]
     public class ProcessLists : BaseDocumentBuildStep
     {
+#if false
         // match [!list ]
         private static readonly Regex listExpression = 
             new Regex(@"\[!list (?<content>.+)\]", RegexOptions.Compiled);
         // match key=value or "key"="value", or any combinaiton of either
         private static readonly Regex keyValueExpression = 
             new Regex(@"(?:(?:""(?<quotedKey>[^""]+)"")|(?<key>[a-zA-Z_\-\.]+))=(?:(?:""(?<quotedValue>[^""]+)"")|(?<value>[a-zA-Z_\-\.]+))", RegexOptions.Compiled);
+#endif
 
         private ModelsPerFrontmatter modelsPerVariableWithValue = new ModelsPerFrontmatter();
         private ImmutableList<FileModel> allModels = ImmutableList<FileModel>.Empty;
-        private VirtualDirectory rootDirectory = new VirtualDirectory("~", "~");
-        private ImmutableDictionary<string, VirtualDirectory> virtualDirectoryCache = 
-            ImmutableDictionary<string, VirtualDirectory>.Empty;
-        private ImmutableDictionary<string, VirtualFile> virtualFileCache = 
-            ImmutableDictionary<string, VirtualFile>.Empty;
+        //private readonly VirtualFilesystem vfs = new VirtualFilesystem();
 
         public override string Name => nameof(ProcessLists);
 
@@ -56,7 +51,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                 model.SetFrontmatter(yamlHeader);
             });
 
-            BuildDirectoryHierarchy(models);
+            //vfs.BuildDirectoryHierarchy(models);
 
             modelsPerVariableWithValue = BuildModelsWithFrontmatterVariableValues(models);
 
@@ -65,112 +60,12 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
             return models;
         }
 
-        private void BuildDirectoryHierarchy(ImmutableList<FileModel> models)
-        {
-            rootDirectory = new VirtualDirectory("~", "~");
-            Dictionary<string, VirtualDirectory> diretories = new Dictionary<string, VirtualDirectory>();
-            Dictionary<string, VirtualFile> files = new Dictionary<string, VirtualFile>();
-            diretories.Add("~", rootDirectory);
-
-            (string name, string fullName) ParseFileBaseDirectory(string key)
-            {
-                int idxFull = key.LastIndexOf('/');
-                if (idxFull == -1) return ("~", "~");
-
-                string fullName = key.Substring(0, idxFull);
-                if (fullName == "~") return ("~", "~");
-
-                int idxShort = fullName.LastIndexOf('/');
-                if (idxShort == -1) throw new FormatException();
-
-                string shortName = fullName.Substring(idxShort + 1);
-
-                return (shortName, fullName);
-            }
-
-            VirtualDirectory? FindBaseDirectory(VirtualDirectory dir)
-            {
-                if (dir.FullPath == "~") return null;
-
-                var (parentName, parentFullName) = ParseFileBaseDirectory(dir.FullPath);
-
-                var parent = GetDir(parentName, parentFullName);
-                return parent;
-            }
-
-            VirtualFile GetOrCreateFile(FileModel model)
-            {
-                if (!files.TryGetValue(model.Key, out var file))
-                {
-                    file = new VirtualFile(model);
-                    files.Add(model.Key, file);
-                }
-                return file;
-            }
-
-            VirtualDirectory GetDir(string name, string fullPath)
-            {
-                if (!diretories.TryGetValue(fullPath, out var dir))
-                {
-                    dir = new VirtualDirectory(name, fullPath);
-                    dir.Parent = FindBaseDirectory(dir);
-                    if (dir.Parent != null)
-                    {
-                        dir.Parent.SubDirectories.Add(dir);
-                    }
-                    diretories.Add(fullPath, dir);
-                }
-                return dir;
-            }
-
-            foreach (var model in models)
-            {
-                var path = model.Key;
-                var (name, fullPath) = ParseFileBaseDirectory(model.Key);
-                var dir = GetDir(name, fullPath);
-
-                var vf = GetOrCreateFile(model);
-                vf.Directory = dir;
-
-                dir.Files.Add(vf);
-            }
-
-            var dirsBuilder = virtualDirectoryCache.ToBuilder();
-            dirsBuilder.Clear();
-            dirsBuilder.AddRange(diretories);
-            virtualDirectoryCache = dirsBuilder.ToImmutable();
-
-            var filesBuilder = virtualFileCache.ToBuilder();
-            filesBuilder.Clear();
-            filesBuilder.AddRange(files);
-            virtualFileCache = filesBuilder.ToImmutable();
-        }
-
-        private VirtualDirectory? GetVirtualDirectory(FileModel model)
-        {
-            VirtualFile virtFile = GetVirtualFile(model);
-            VirtualDirectory? virtDir = virtFile.Directory;
-            return virtDir;
-        }
-
-        private VirtualFile GetVirtualFile(FileModel model)
-        {
-            if (virtualFileCache.TryGetValue(model.Key, out var file))
-            {
-                return file;
-            }
-            else
-            {
-                throw new KeyNotFoundException(model.Key);
-            }
-        }
-
-        private static FrontmatterVariableAndValue[] ParseYamlHeader(FileModel model)
+        private static Dictionary<string, string> ParseYamlHeader(FileModel model)
         {
             var content = (Dictionary<string, object>)model.Content;
             var markdown = (string)content[Constants.PropertyName.Conceptual];
             using var reader = new StringReader(markdown);
-            HashSet<FrontmatterVariableAndValue>? values = null;
+            Dictionary<string, string>? values = null;
             bool isFirst = true;
             bool isClosed = false;
             string line;
@@ -181,10 +76,10 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                 {
                     if (!line.StartsWith("---"))
                     {
-                        return Array.Empty<FrontmatterVariableAndValue>();
+                        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                     }
                     isFirst = false;
-                    values = new HashSet<FrontmatterVariableAndValue>();
+                    values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 }
                 else
                 {
@@ -197,8 +92,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                         string[] parts = line.Split(separator, 2);
                         if (parts.Length == 2)
                         {
-                            var fv = new FrontmatterVariableAndValue(parts[0].Trim(), parts[1].Trim());
-                            values!.Add(fv);
+                            values![parts[0].Trim()] = parts[1].Trim();
                         }
                     }
                 }
@@ -206,11 +100,11 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
 
             if (isFirst || !isClosed)
             {
-                return Array.Empty<FrontmatterVariableAndValue>();
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             }
             else
             {
-                return values.ToArray();
+                return values!;
             }
         }
 
@@ -222,12 +116,11 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
             {
                 var frontMatter = model.GetFrontmatter();
                 
-                foreach (var variableWithValue in frontMatter)
+                foreach (var (variable, value) in frontMatter)
                 {
-                    if (!modelsPerVariableWithValue.TryGetValue(variableWithValue, out var appropriateModels))
+                    if (!modelsPerVariableWithValue.TryGetModelWithVariableEqualTo(variable, value, out var appropriateModels))
                     {
-                        appropriateModels = new List<FileModel>();
-                        modelsPerVariableWithValue.Add(variableWithValue, appropriateModels);
+                        appropriateModels = modelsPerVariableWithValue.AddNewVariableWithValue(variable, value);
                     }
                     appropriateModels.Add(model);
                 }
@@ -236,172 +129,144 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
             return modelsPerVariableWithValue;
         }
 
-        private static readonly Dictionary<string, Regex> CachedRegexPatterns =
-            new Dictionary<string, Regex>();
-
-        private static bool MatchesFilePattern(string name, string pattern)
+        public override void Build(FileModel model, IHostService host)
         {
-            Regex regexPattern;
-            lock (CachedRegexPatterns)
+            var context = new ListContext(model, allModels, modelsPerVariableWithValue/*, vfs*/);
+            
+            var content = model.GetContent();
+            var initialMarkdown = (string)content[BuildConceptualDocument.ConceptualKey];
+
+            var (fixedMarkdown, errors) = ProcessMarkdown(context, initialMarkdown);
+
+            if (fixedMarkdown != initialMarkdown)
             {
-                if (!CachedRegexPatterns.TryGetValue(pattern, out regexPattern))
+                content[BuildConceptualDocument.ConceptualKey] = fixedMarkdown;
+            }
+
+            foreach (var error in errors)
+            {
+                host.LogError(error.Message, model.File, error.Line.ToString());
+            }
+        }
+
+        internal static (string, ParseError[]) ProcessMarkdown(
+            ListContext context,
+            string initialMarkdown)
+        {
+            string fixedMarkdown = initialMarkdown;
+            var parseResult = ListOperatorParser.Parse(initialMarkdown);
+
+            if (parseResult.Lists.Length > 0)
+            {
+                StringBuilder sb = new StringBuilder();
+                int lastIndex = 0;
+
+                foreach (var list in parseResult.Lists)
                 {
-                    StringBuilder builder = new StringBuilder();
-                    foreach (char symbol in pattern)
+                    if (list.MatchedExpression.StartingIndex - lastIndex > 0)
                     {
-                        switch (symbol)
-                        {
-                            case '*':
-                                builder.Append(".*");
-                                break;
-
-                            case '?':
-                                builder.Append(".");
-                                break;
-
-                            case '.':
-                            case '$':
-                            case '^':
-                            case '{':
-                            case '[':
-                            case '(':
-                            case '|':
-                            case ')':
-                            //case '*':
-                            case '+':
-                            // case '?':
-                            case '\\':
-                                builder.Append('\\');
-                                builder.Append(symbol);
-                                break;
-
-                            default:
-                                builder.Append(symbol);
-                                break;
-                        }
+                        string prefix = initialMarkdown.Substring(lastIndex, list.MatchedExpression.StartingIndex - lastIndex);
+                        sb.Append(prefix);
+                        lastIndex = list.MatchedExpression.StartingIndex;
                     }
 
-                    regexPattern = new Regex(builder.ToString(), RegexOptions.Compiled);
-                    CachedRegexPatterns.Add(pattern, regexPattern);
+                    string rendererd = RenderForFile(context, list);
+                    sb.Append(rendererd);
+
+                    // ending index points at closing ']', so we need to advance past it
+                    lastIndex = list.MatchedExpression.EndingIndex + 1;
                 }
-            }
 
-            bool matches = regexPattern.IsMatch(name);
-
-            return matches;
-        }
-
-        private int CalculateDepthRelativeTo(FileModel root, FileModel needle)
-        {
-            var vfRoot = GetVirtualFile(root);
-            var vfNeedle = GetVirtualFile(needle);
-
-            int depth = 0;
-            VirtualDirectory? needleDir = vfNeedle.Directory;
-            while (vfRoot.Directory != needleDir)
-            {
-                if (needleDir == null || needleDir == rootDirectory)
+                if (lastIndex < initialMarkdown.Length)
                 {
-                    depth = int.MaxValue;
-                    break;
+                    string suffix = initialMarkdown.Substring(lastIndex);
+                    sb.Append(suffix);
                 }
 
-                needleDir = needleDir.Parent;
-                depth++;
+                fixedMarkdown = sb.ToString();
             }
 
-            return depth;
+            return (fixedMarkdown, parseResult.Errors);
         }
 
-        private LinkToArticle[] FindRelatedArticles(ListContext list)
+        internal static string RenderForFile(ListContext context, ListOperator list)
         {
-            IEnumerable<FileModel> src = list.AllFiles;
+            ListOutputContext outputContext;
+            outputContext.DefaultText = list.DefaultText;
+            (outputContext.Links, outputContext.SomeItemsAreHidden) = context.FindRelatedArticles(list);
 
-            // directory pattern
-            if (!string.IsNullOrEmpty(list.FolderPattern))
-            {
-                string pattern = list.FolderPattern;
-                if (pattern == ".")
-                    pattern = (GetVirtualDirectory(list.File)?.FullPath ?? "") + "*";
-                src = src
-                    .Where(x => MatchesFilePattern(GetVirtualDirectory(x)?.FullPath ?? "", pattern))
-                    .ToArray();
-            }
+            string output = context.RenderAsMarkdown(list.Style)(outputContext);
+            return output;
+        }
+    }
 
-            // exclude pattern
-            if (string.IsNullOrEmpty(list.ExcludePattern))
+    internal static class PrivateFileModelExtensions
+    {
+        private const string Frontmatter = "_frontmatter";
+
+        public static void Deconstruct(this KeyValuePair<string, string> kvp, out string key, out string value)
+        {
+            key = kvp.Key;
+            value = kvp.Value;
+        }
+
+        public static IDictionary<string, object> GetContent(this FileModel model)
+        {
+            if (model != null && model.Content is IDictionary<string, object> cont)
             {
-                // exclude self
-                src = src.Where(x => x != list.File).ToArray();
+                return cont;
             }
             else
             {
-                src = src
-                    .Where(x => 
-                        x != list.File 
-                        && !MatchesFilePattern(GetVirtualFile(x).Name, list.ExcludePattern)
-                    ).ToArray();
+                return new Dictionary<string, object>();
             }
-
-            // directory depth
-            if (list.Depth > 0)
-            {
-                src = src
-                    .Where(x => CalculateDepthRelativeTo(list.File, x) <= list.Depth)
-                    .ToArray();
-            }
-
-            // file pattern
-            if (!string.IsNullOrEmpty(list.FilePattern) && list.FilePattern != "*")
-            {
-                src = src
-                    .Where(x => MatchesFilePattern(GetVirtualFile(x).Name, list.FilePattern))
-                    .ToArray();
-            }
-
-            if (list.Conditions.Count > 0)
-            {
-                src = src
-                    .Where(x => list.Conditions.All(cond => x.GetFrontmatter().Contains(cond)))
-                    .ToArray();
-            }
-
-            if (list.Limit > 0)
-            {
-                src = src.Take(list.Limit).ToArray();
-            }
-
-            FileModel[] models = (src as FileModel[]) ?? src.ToArray();
-
-            IEnumerable<LinkToArticle> resultBuilder = models
-                .Select(item =>
-                {
-                    var relatedContent = (Dictionary<string, object>)item.Content;
-
-                    string outputDir = EnvironmentContext.OutputDirectory;
-                    string title = GetTitle(item) ?? string.Empty;
-                    string href = item.Key;
-
-                    return new LinkToArticle(title, href);
-                })
-                .OrderBy(x => x.Title);
-            LinkToArticle[] sorted = resultBuilder.ToArray();
-            return sorted;
         }
 
-        static string? GetTitle(FileModel model)
+        public static void SetFrontmatter(this FileModel model, Dictionary<string, string> frontmatter)
+        {
+            var content = model.GetContent();
+            content[Frontmatter] = frontmatter;
+        }
+
+        public static bool HasFrontmatterWithValue(this FileModel model, string variableName, string variableValue)
+        {
+            var content = model.GetContent();
+            if (content.TryGetValue(Frontmatter, out object fmRaw)
+                && fmRaw is Dictionary<string, string> fm
+                && fm.TryGetValue(variableName, out var valueInFile))
+            {
+                return string.Equals(valueInFile, variableValue, StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public static Dictionary<string, string> GetFrontmatter(this FileModel model)
+        {
+            var content = model.GetContent();
+            if (content.TryGetValue(Frontmatter, out object fmRaw)
+                && fmRaw is Dictionary<string, string> fm)
+            {
+                return fm;
+            }
+            else
+            {
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        public static string? GetTitle(this FileModel model)
         {
             IDictionary<string, object> content = model.GetContent();
-            FrontmatterVariableAndValue[] frontmatter = model.GetFrontmatter();
+            Dictionary<string, string> frontmatter = model.GetFrontmatter();
             string markdown = (string)content[Constants.PropertyName.Conceptual];
 
             // title from YAML header
-            foreach (var fmv in frontmatter)
+            if (frontmatter.TryGetValue("title", out var titleFromFrontmatter))
             {
-                if ("title" == fmv.Key)
-                {
-                    return fmv.OriginalValue;
-                }
+                return titleFromFrontmatter;
             }
 
             object metadataValue;
@@ -427,7 +292,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
 
         static readonly Regex headingExpression = new Regex(@"^#{1,3}(?<title>.+)$", RegexOptions.Compiled);
 
-        static string? GetTitleFromMarkdown(string markdown)
+        public static string? GetTitleFromMarkdown(string markdown)
         {
             using var reader = new StringReader(markdown);
 
@@ -451,491 +316,11 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments
                 }
 
                 Match m;
-                
+
                 m = headingExpression.Match(line);
                 if (m.Success) return m.Groups["title"].Value;
             }
             return null;
-        }
-
-        public override void Build(FileModel model, IHostService host)
-        {
-            var content = model.GetContent();
-            var initialMarkdown = (string)content[BuildConceptualDocument.ConceptualKey];
-            bool change = false;
-            var fixedMarkdown = listExpression.Replace(initialMarkdown, listOperatorMatch =>
-            {
-                var listOperator = listOperatorMatch.Groups["content"].Value.Replace("&quot;", "\"");
-                
-                var matches = keyValueExpression.Matches(listOperator);
-
-                var builder = new ListContextBuilder();
-                
-                builder.File(model);
-                builder.AllFiles(allModels);
-                builder.ModelsPerVariable(modelsPerVariableWithValue);
-
-                foreach (Match keyValueMatch in matches)
-                {
-                    var quotedKeyGroup = keyValueMatch.Groups["quotedKey"];
-                    var keyGroup = keyValueMatch.Groups["key"];
-                    var quotedValueGroup = keyValueMatch.Groups["quotedValue"];
-                    var valueGroup = keyValueMatch.Groups["value"];
-
-                    string key = quotedKeyGroup.Success ? quotedKeyGroup.Value : keyGroup.Value;
-                    string value = quotedValueGroup.Success ? quotedValueGroup.Value : valueGroup.Value;
-
-                    builder.Condition(key, value);
-                }
-
-                var list = builder.Build();
-                
-                ListOutputContext outputContext;
-                outputContext.DefaultText = list.DefaultText;
-                outputContext.Links = FindRelatedArticles(list);
-
-                string output = list.RenderAsMarkdown(outputContext);
-
-                if (output.Length != 0)
-                {
-                    change = true;
-                }
-
-                return output;
-            });
-
-            if (change)
-            {
-                content[BuildConceptualDocument.ConceptualKey] = fixedMarkdown;
-            }
-        }
-
-        private static string RenderListOrdered(ListOutputContext list)
-        {
-            var output = new StringBuilder();
-
-            if (list.Links.Count > 0)
-            {
-                output.Append("\n\n");
-
-                int linkIndex = 0;
-                foreach (var link in list.Links)
-                {
-                    output
-                        .Append(linkIndex + 1)
-                        .Append(" [")
-                        .Append(link.Title ?? link.Href)
-                        .Append("](")
-                        .Append(link.Href)
-                        .Append(")\n");
-
-                    linkIndex++;
-                }
-
-                output.Append("\n");
-            }
-            else
-            {
-                if (!string.IsNullOrEmpty(list.DefaultText))
-                {
-                    output.Append("\n").Append(list.DefaultText).Append("\n");
-                }
-            }
-
-            return output.ToString();
-        }
-
-        private static string RenderListBullets(ListOutputContext list)
-        {
-            StringBuilder output = new StringBuilder();
-
-            if (list.Links.Count > 0)
-            {
-                output.Append("\n\n");
-
-                foreach (var link in list.Links)
-                {
-                    output
-                        .Append("* [")
-                        .Append(link.Title ?? link.Href)
-                        .Append("](")
-                        .Append(link.Href)
-                        .Append(")\n");
-                }
-
-                output.Append("\n");
-            }
-            else
-            {
-                if (!string.IsNullOrEmpty(list.DefaultText))
-                {
-                    output.Append("\n").Append(list.DefaultText).Append("\n");
-                }
-            }
-
-            return output.ToString();
-        }
-
-        private static string RenderListHeading(ListOutputContext list)
-        {
-            const int HeadingLevel = 2;
-
-            StringBuilder output = new StringBuilder();
-
-            if (list.Links.Count > 0)
-            {
-                output.Append("\n\n");
-
-                int linkIndex = 0;
-                foreach (var link in list.Links)
-                {
-                    output
-                        .Append('#', HeadingLevel)
-                        .Append(" [")
-                        .Append(link.Title ?? link.Href)
-                        .Append("](")
-                        .Append(link.Href)
-                        .Append(")\n");
-
-                    linkIndex++;
-                }
-
-                output.Append("\n");
-            }
-            else
-            {
-                if (!string.IsNullOrEmpty(list.DefaultText))
-                {
-                    output.Append("\n").Append(list.DefaultText).Append("\n");
-                }
-            }
-
-            return output.ToString();
-        }
-
-        struct ListOutputContext
-        {
-            public string DefaultText;
-            public IReadOnlyCollection<LinkToArticle> Links;
-        }
-
-        delegate string RenderListInMarkdown(ListOutputContext list);
-
-        enum ListStyle
-        {
-            Bullet,
-            Number,
-            Heading
-        }
-
-        class ListContextBuilder
-        {
-            private string filePattern = "*";
-            private string folderPattern = "";
-            private string excludePattern = "";
-            private int depth = -1;
-            private int limit = 10;
-            private ListStyle style = ListStyle.Bullet;
-            private string defaultText = "";
-            private readonly HashSet<FrontmatterVariableAndValue> conditions = new HashSet<FrontmatterVariableAndValue>();
-            private FileModel? file;
-            private ImmutableList<FileModel> allFiles = ImmutableList<FileModel>.Empty;
-            private ModelsPerFrontmatter modelsPerFrontmatter = new ModelsPerFrontmatter();
-
-            public ListContextBuilder ModelsPerVariable(ModelsPerFrontmatter modelsPerVariableWithValue)
-            {
-                this.modelsPerFrontmatter = modelsPerVariableWithValue;
-                return this;
-            }
-
-            public ListContextBuilder AllFiles(ImmutableList<FileModel> allFiles)
-            {
-                this.allFiles = allFiles ?? ImmutableList<FileModel>.Empty;
-                return this;
-            }
-
-            public ListContextBuilder File(FileModel file)
-            {
-                this.file = file;
-                return this;
-            }
-
-            public ListContextBuilder DefaultText(string text)
-            {
-                this.defaultText = text;
-                return this;
-            }
-
-            public ListContextBuilder FilePattern(string pattern)
-            {
-                this.filePattern = pattern;
-                return this;
-            }
-
-            public ListContextBuilder FolderPattern(string pattern)
-            {
-                this.folderPattern = pattern;
-                return this;
-            }
-
-            public ListContextBuilder Depth(int depth)
-            {
-                this.depth = depth;
-                return this;
-            }
-
-            public ListContextBuilder Limit(int limit)
-            {
-                this.limit = limit;
-                return this;
-            }
-
-            public ListContextBuilder Style(ListStyle style)
-            {
-                this.style = style;
-                return this;
-            }
-
-            public ListContextBuilder ExcludePattern(string pattern)
-            {
-                this.excludePattern = pattern;
-                return this;
-            }
-
-            public ListContextBuilder Condition(string key, string value)
-            {
-                return Condition(new FrontmatterVariableAndValue(key, value));
-            }
-
-            public ListContextBuilder Condition(FrontmatterVariableAndValue var)
-            {
-                switch (var.Key)
-                {
-                    case "file":
-                        filePattern = var.OriginalValue;
-                        break;
-
-                    case "folder":
-                        filePattern = var.OriginalValue;
-                        break;
-
-                    case "depth":
-                        if (!int.TryParse(var.OriginalValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out this.depth))
-                        {
-                            throw new FormatException($"Cannot parse depth as integer: '{var.OriginalValue}'");
-                        }
-                        break;
-
-                    case "limit":
-                        if (!int.TryParse(var.OriginalValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out this.limit))
-                        {
-                            throw new FormatException($"Cannot parse limit as integer: '{var.OriginalValue}'");
-                        }
-                        break;
-
-                    case "style":
-                        if (!Enum.TryParse<ListStyle>(var.OriginalValue, ignoreCase: true, out this.style))
-                        {
-                            var possibleValues = string.Join(", " , Enum.GetNames(typeof(ListStyle)));
-                            throw new FormatException($"Cannot parse style '{var.OriginalValue}'. Must be one of {possibleValues}");
-                        }
-                        break;
-
-                    case "default-text":
-                        this.defaultText = var.OriginalValue;
-                        break;
-
-                    default:
-                        conditions.Add(var);
-                        break;
-                }
-
-                return this;
-            }
-
-            public ListContext Build()
-            {
-                if (file == null) throw new NotSupportedException("Must set file");
-
-                return new ListContext(
-                    filePattern: filePattern,
-                    folderPattern: folderPattern,
-                    excludePattern: excludePattern,
-                    defaultText: defaultText,
-                    allFiles: allFiles,
-                    modelsPerFrontmatter: modelsPerFrontmatter,
-                    style: style,
-                    depth: depth,
-                    limit: limit,
-                    file: file,
-                    conditions: conditions);
-            }
-        }
-
-        class ListContext
-        {
-            public readonly string FilePattern;
-            public readonly string FolderPattern;
-            public readonly string ExcludePattern;
-            public readonly ImmutableHashSet<FrontmatterVariableAndValue> Conditions;
-            public readonly ImmutableList<FileModel> AllFiles;
-            public readonly ModelsPerFrontmatter ModelsPerFrontmatter;
-            public readonly ListStyle Style;
-            public readonly int Depth;
-            public readonly int Limit;
-            public readonly FileModel File;
-            public readonly string DefaultText;
-            public readonly RenderListInMarkdown RenderAsMarkdown;
-            
-
-            public ListContext(
-                string filePattern,
-                string folderPattern,
-                string excludePattern,
-                string defaultText,
-                ListStyle style,
-                int depth,
-                int limit,
-                FileModel file,
-                ImmutableList<FileModel> allFiles,
-                ModelsPerFrontmatter modelsPerFrontmatter,
-                IEnumerable<FrontmatterVariableAndValue> conditions)
-            {
-                this.FilePattern = filePattern;
-                this.FolderPattern = folderPattern;
-                this.ExcludePattern = excludePattern;
-                this.DefaultText = defaultText;
-                this.Style = style;
-                this.Depth = depth;
-                this.Limit = limit;
-                this.File = file;
-                this.AllFiles = allFiles;
-                this.ModelsPerFrontmatter = modelsPerFrontmatter;
-                this.Conditions = ImmutableHashSet.Create(conditions.ToArray());
-                
-                switch (style)
-                {
-                    case ListStyle.Heading:
-                        this.RenderAsMarkdown = ProcessLists.RenderListHeading;
-                        break;
-
-                    case ListStyle.Number:
-                        this.RenderAsMarkdown = ProcessLists.RenderListOrdered;
-                        break;
-
-                    case ListStyle.Bullet:
-                    default:
-                        this.RenderAsMarkdown = ProcessLists.RenderListBullets;
-                        break;
-                }
-            }
-        }
-
-        [DebuggerDisplay("({Title})[{Href}]")]
-        struct LinkToArticle: IComparable<LinkToArticle>, IEquatable<LinkToArticle>
-        {
-            public readonly string Title;
-            public readonly string Href;
-
-            public LinkToArticle(string title, string href)
-            {
-                Title = title;
-                Href = href;
-            }
-
-            public int CompareTo(LinkToArticle other)
-            {
-                return string.Compare(Title ?? "", other.Title ?? "");
-            }
-
-            public bool Equals(LinkToArticle other)
-            {
-                return string.Equals(Title, other.Title);
-            }
-
-            public override bool Equals(object obj)
-            {
-                if (obj is LinkToArticle art) return this.Equals(art);
-                else return object.ReferenceEquals(this, obj);
-            }
-
-            public override int GetHashCode()
-            {
-                return Title?.GetHashCode() ?? 0;
-            }
-        }
-    }
-
-    [DebuggerDisplay("D {FullPath}")]
-    class VirtualDirectory
-    {
-        public string FullPath;
-        public string Name;
-        public VirtualDirectory? Parent;
-        public readonly HashSet<VirtualDirectory> SubDirectories;
-        public readonly HashSet<VirtualFile> Files;
-
-        public VirtualDirectory(string shortPath, string fullPath)
-        {
-            FullPath = fullPath;
-            Name = shortPath;
-            Files = new HashSet<VirtualFile>();
-            SubDirectories = new HashSet<VirtualDirectory>();
-        }
-    }
-
-    [DebuggerDisplay("F {FullName}")]
-    class VirtualFile
-    {
-        private readonly FileModel fileModel;
-
-        public string Name { get; private set; }
-        public string FullName { get; private set; }
-        public VirtualDirectory? Directory { get; set; }
-        public FileModel FileModel => fileModel;
-
-        public VirtualFile(FileModel model)
-        {
-            this.fileModel = model;
-            this.Name = model.FileAndType.File;
-            this.FullName = model.FileAndType.FullPath;
-        }
-    }
-
-    static class PrivateFileModelExtensions
-    {
-        private const string Frontmatter = "_frontmatter";
-
-        public static IDictionary<string, object> GetContent(this FileModel model)
-        {
-            if (model != null && model.Content is IDictionary<string, object> cont)
-            {
-                return cont;
-            }
-            else
-            {
-                return new Dictionary<string, object>();
-            }
-        }
-
-        public static void SetFrontmatter(this FileModel model, FrontmatterVariableAndValue[] frontmatter)
-        {
-            var content = model.GetContent();
-            content[Frontmatter] = frontmatter;
-        }
-
-        public static FrontmatterVariableAndValue[] GetFrontmatter(this FileModel model)
-        {
-            var content = model.GetContent();
-            if (content.TryGetValue(Frontmatter, out object fmRaw)
-                && fmRaw is FrontmatterVariableAndValue[] fmArray)
-            {
-                return fmArray;
-            }
-            else
-            {
-                return Array.Empty<FrontmatterVariableAndValue>();
-            }
         }
     }
 }

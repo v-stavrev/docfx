@@ -1,5 +1,29 @@
-Version Notes (Current Version: v2.56.6)
+Version Notes (Current Version: v2.56.7)
 =======================================
+
+v.2.56.7
+-----------
+1. Fix parsing for [!list] - more attributes are parsed correctly without quotation
+2. Fix depth for [!list]
+3. Fix pattern matching for [!list]
+
+    * Each file has canonical name in the form of `~/home/pics/profile.png`. This will be used for examples below.
+    * If folder pattern is `*`, then each candiate must be child of `~/home/pics` (or a sub-directory)
+    * If folder pattern starts with `/` or `~/` - e.g. `/var/logs` - each child must be child of `/var/logs` (or a sub-directory)
+    * Folder pattern can be any file glob pattern (e.g. `*` for each character, `?` to mean any single character)
+    * If folder pattern is neither `*`, nor it starts with `/`, nor '~/', then `~/home/pics/` is prepended, then the
+    folder for the examined file (e.g. `~/home/batman.txt` -> `~/home`) is examined
+    * After that, exclude pattern is examined. The folder name of the examined file is compare to any file's folder name.
+    If there is a match, the file is excluded (e.g. for file `/home/pics/through-hike/awesome.png` and pattern
+    `*hike`, the file will be excluded, because `through-hike` matches `hike`)
+    * Next, depth is examined. If files are related, e.g. they are either in the same directory, or one is in a sub-directory
+    of another, then depth is calculated. For both ~/home/pic.png and ~/home/pics/profile and 
+    ~/home/pics/profile and ~/home/pic.png, depth is 1. If files are in the same folder, depth is 0. Files that are not
+    related are discared from the result.
+    * File pattern gets the file name of the currently examined file and matches is to the `file` file glob pattern.
+4. Ordered lists are rendered correctly - with n., rather than just n, where n is the consequtive number
+5. There is an additional `...` item in the final rendered list if some items are skipped due to `limit`
+
 
 v.2.56.6
 -----------
