@@ -173,13 +173,14 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments.ListOperatorHelpers
             for (int i = ctx.Index; next?.Overflow == false; i++)
             {
                 // identifier is anything starting with letter, then followed
-                // by digit, underscore (_) or dash(-)
+                // by digit, underscore (_) or dash(-) or dot (.)
                 // allow starting symbol to be digit, so that we can have numbers
                 if (char.IsLetterOrDigit(next.Value.Symbol) ||
                     (i > ctx.Index && 
                         (
                             (next.Value.Symbol == '_')
                             || (next.Value.Symbol == '-')
+                            || (next.Value.Symbol == '.')
                         )
                     )
                 )

@@ -1,5 +1,9 @@
-Version Notes (Current Version: v2.56.7)
+Version Notes (Current Version: v2.56.8)
 =======================================
+
+v.2.56.8
+-----------
+1. Fix a bug where dot (`.`) wouldn't be considered as identifier in `[!list]` parsing
 
 v.2.56.7
 -----------
