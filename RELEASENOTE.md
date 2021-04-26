@@ -1,5 +1,9 @@
-Version Notes (Current Version: v2.56.8)
+Version Notes (Current Version: v2.56.9)
 =======================================
+
+v.2.56.9
+-----------
+1. Fix a bug where dot (`.`) wouldn't be considered for the current folder
 
 v.2.56.8
 -----------

@@ -198,7 +198,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments.ListOperatorHelpers
             // directory pattern
             if (!string.IsNullOrEmpty(list.FolderPattern))
             {
-                if (list.FolderPattern == "*")
+                if (list.FolderPattern == "*" || list.FolderPattern == ".")
                 {
                     // other file's paths must start with my path
 
