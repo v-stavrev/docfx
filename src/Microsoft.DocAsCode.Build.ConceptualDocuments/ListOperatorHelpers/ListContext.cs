@@ -252,10 +252,7 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments.ListOperatorHelpers
             {
                 var pattern = new Regex(FileGlobToRegex(list.ExcludePattern).ToString(), RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-                src = src
-                    .Where(x => x != File
-                        && !pattern.IsMatch(DirectoryNameFromKey(x.Key)))
-                    .ToArray();
+                src = src.Where(x => x != File && !pattern.IsMatch(x.Key)).ToArray();
             }
 
             // directory depth

@@ -99,6 +99,10 @@ namespace Microsoft.DocAsCode.Build.ConceptualDocuments.ListOperatorHelpers
                     FolderPattern = value;
                     break;
 
+                case "exclude":
+                    ExcludePattern = value;
+                    break;
+            
                 case "depth":
                     if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out this.Depth))
                     {

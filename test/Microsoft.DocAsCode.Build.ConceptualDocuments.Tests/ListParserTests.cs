@@ -34,7 +34,7 @@ It is intended primarily for advanced ERP implementation consultants.
 
 ## Temp
 
-[!list folder=""/calculated-attributes"" file=""*"" depth=2 limit=50 style=bullet]
+[!list folder=""/calculated-attributes"" file=""*"" exclude=""*pro*"" depth=2 limit=50 style=bullet]
 ";
 
             var result = ListOperatorParser.Parse(file1);
@@ -46,6 +46,7 @@ It is intended primarily for advanced ERP implementation consultants.
 
             Assert.Equal("/calculated-attributes", list.FolderPattern);
             Assert.Equal("*", list.FilePattern);
+            Assert.Equal("*pro*", list.ExcludePattern);
             Assert.Equal(2, list.Depth);
             Assert.Equal(50, list.Limit);
             Assert.Equal(ListStyle.Bullet, list.Style);

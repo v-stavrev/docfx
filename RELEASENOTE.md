@@ -1,5 +1,9 @@
-Version Notes (Current Version: v2.56.9)
-=======================================
+Version Notes (Current Version: v2.56.11)
+========================================
+
+v.2.56.11
+-----------
+1. Fix a bug: [!list] operator, parameter exclude "" does not work correctly
 
 v.2.56.9
 -----------
